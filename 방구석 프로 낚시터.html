@@ -1,0 +1,1064 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>방구석 프로 낚시터</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * { -webkit-tap-highlight-color: transparent; user-select: none; box-sizing: border-box; }
+        body { background-color: #090d16; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; touch-action: manipulation; }
+        .water-gradient {
+            background: linear-gradient(180deg, #0b1329 0%, #0d2744 35%, #104470 70%, #1e6091 100%);
+        }
+        @keyframes bobbing {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(7px) rotate(2deg); }
+        }
+        .bobber-float { animation: bobbing 2.6s infinite ease-in-out; }
+        @keyframes biteShake {
+            0% { transform: translate(0, 0); }
+            25% { transform: translate(-4px, 12px); }
+            50% { transform: translate(4px, 15px); }
+            75% { transform: translate(-2px, 8px); }
+            100% { transform: translate(0, 0); }
+        }
+        .bobber-bite { animation: biteShake 0.35s infinite ease-in-out; }
+        .modal-backdrop { background-color: rgba(0, 0, 0, 0.82); backdrop-filter: blur(5px); }
+        
+        /* 미포획 물고기 실루엣 */
+        .fish-silhouette {
+            filter: brightness(0) opacity(0.22);
+        }
+
+        /* 15강/특수 낚싯대 RGB 애니메이션 */
+        @keyframes rainbowRgb {
+            0%   { border-color: #ff2a5f; box-shadow: 0 0 14px rgba(255, 42, 95, 0.7); }
+            25%  { border-color: #ffaa00; box-shadow: 0 0 14px rgba(255, 170, 0, 0.7); }
+            50%  { border-color: #00ff88; box-shadow: 0 0 14px rgba(0, 255, 136, 0.7); }
+            75%  { border-color: #00bfff; box-shadow: 0 0 14px rgba(0, 191, 255, 0.7); }
+            100% { border-color: #d800ff; box-shadow: 0 0 14px rgba(216, 0, 255, 0.7); }
+        }
+        .rod-rgb-glow {
+            animation: rainbowRgb 2.2s linear infinite;
+        }
+        .btn-reel-touch {
+            touch-action: none;
+            -webkit-user-select: none;
+        }
+    </style>
+</head>
+<body class="h-screen w-screen overflow-hidden flex flex-col justify-between">
+
+    <!-- 상단 대시보드 -->
+    <header class="bg-slate-900/95 border-b border-slate-800 px-3 py-2 flex items-center justify-between z-20">
+        <div class="flex items-center space-x-2">
+            <button onclick="openNicknameModal()" class="flex items-center space-x-1 bg-slate-800 px-2 py-1 rounded-lg border border-slate-700 active:scale-95 transition">
+                <i class="fa-solid fa-user text-sky-400 text-[10px]"></i>
+                <span id="displayNickname" class="text-xs font-bold text-slate-200 truncate max-w-[70px]">강태공</span>
+            </button>
+            <div class="flex items-center space-x-1 bg-amber-950/40 border border-amber-500/30 px-2 py-1 rounded-lg text-xs font-semibold text-amber-300">
+                <span>💰</span><span id="goldText">0</span>
+            </div>
+            <div class="flex items-center space-x-1 bg-cyan-950/40 border border-cyan-500/30 px-2 py-1 rounded-lg text-xs font-semibold text-cyan-300">
+                <span>💎</span><span id="stoneText">0</span>
+            </div>
+        </div>
+
+        <div class="flex items-center space-x-1.5">
+            <!-- 착용 중인 낚싯대 배지 -->
+            <div id="rodBadgeContainer" class="px-2 py-0.5 rounded-lg border-2 text-[10px] font-black tracking-wide">
+                <span id="rodBadgeName">낚싯대</span>
+            </div>
+            <!-- 음소거 토글 -->
+            <button id="muteBtn" onclick="toggleMute()" class="w-7 h-7 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-300 active:scale-95 transition">
+                <i id="muteIcon" class="fa-solid fa-volume-high text-xs"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- 중앙 낚시 화면 -->
+    <main class="relative flex-1 water-gradient overflow-hidden flex items-center justify-center">
+        <!-- 물결 파티클 -->
+        <div class="absolute inset-0 opacity-20 pointer-events-none">
+            <div class="absolute w-80 h-80 rounded-full border border-sky-300 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 animate-ping" style="animation-duration: 4.5s;"></div>
+            <div class="absolute w-52 h-52 rounded-full border border-sky-200 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 animate-ping" style="animation-duration: 3s; animation-delay: 1s;"></div>
+        </div>
+
+        <!-- 낚싯줄 -->
+        <svg class="absolute inset-0 w-full h-full pointer-events-none z-0">
+            <line x1="50%" y1="0" x2="50%" y2="50%" stroke="rgba(255,255,255,0.35)" stroke-width="1.5" stroke-dasharray="3,3" />
+        </svg>
+
+        <!-- 찌 오브젝트 -->
+        <div id="bobberContainer" class="relative z-10 flex flex-col items-center">
+            <div id="hitBubble" class="hidden absolute -top-12 bg-red-600 text-white font-black text-xs px-3 py-1 rounded-full shadow-lg border-2 border-white animate-bounce">
+                💥 챔질(HIT)!
+            </div>
+            <div id="bobber" class="w-7 h-14 relative bobber-float transition-all duration-300">
+                <div class="w-1.5 h-5 bg-red-500 mx-auto rounded-t"></div>
+                <div class="w-6 h-6 bg-amber-400 rounded-full mx-auto border-2 border-slate-900 -mt-1 shadow-md"></div>
+                <div class="w-1 h-4 bg-slate-800 mx-auto"></div>
+            </div>
+        </div>
+
+        <!-- 모바일 최적화 릴링 미니게임 UI -->
+        <div id="reelingUI" class="hidden absolute inset-x-4 top-12 bottom-16 bg-slate-950/90 rounded-2xl border border-sky-500/40 p-4 flex flex-col justify-between z-30 shadow-2xl backdrop-blur-md">
+            <!-- 상단 난이도 인디케이터 -->
+            <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+                <div>
+                    <span id="fightFishTierBadge" class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-sky-900 text-sky-300">일반 어종</span>
+                    <span id="fightFishDifficulty" class="text-xs text-amber-400 font-bold ml-1.5">⭐ 난이도: 1.5</span>
+                </div>
+                <span class="text-[11px] text-slate-400">초록 영역을 유지하세요</span>
+            </div>
+
+            <!-- 게이지 영역 (모바일 조작성 향상을 위해 너비 확장) -->
+            <div class="flex items-center justify-center space-x-6 py-2">
+                <div class="relative w-20 h-56 bg-slate-900 border-2 border-slate-700 rounded-xl overflow-hidden shadow-inner">
+                    <!-- 물고기 스위트스팟 존 -->
+                    <div id="fishSweetZone" class="absolute w-full bg-emerald-500/50 border-y-2 border-emerald-400 transition-all duration-150" style="height: 38%; bottom: 30%;"></div>
+                    <!-- 유저 찌 인디케이터 -->
+                    <div id="tensionIndicator" class="absolute w-full h-7 bg-amber-400 border-2 border-white rounded shadow-md transition-all duration-75" style="bottom: 10%;"></div>
+                </div>
+
+                <!-- 포획 진행률 바 -->
+                <div class="flex flex-col items-center">
+                    <span class="text-[11px] font-bold text-slate-300 mb-1">포획률</span>
+                    <div class="w-5 h-56 bg-slate-800 rounded-full overflow-hidden border border-slate-700 p-0.5">
+                        <div id="captureProgress" class="w-full bg-gradient-to-t from-sky-500 to-emerald-400 rounded-full transition-all duration-75" style="height: 45%;"></div>
+                    </div>
+                    <span id="capturePercentText" class="text-xs font-mono font-bold text-emerald-400 mt-1">45%</span>
+                </div>
+            </div>
+
+            <!-- 릴 감기 터치 버튼 -->
+            <div class="px-1">
+                <button id="reelBtn" class="btn-reel-touch w-full py-4 bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 font-black text-lg rounded-xl shadow-lg active:scale-95 border-t border-amber-300 transition">
+                    🎣 릴 감기 (누르고 있기)
+                </button>
+            </div>
+        </div>
+
+        <!-- 하단 안내 토스트 -->
+        <div id="statusToast" class="absolute bottom-4 bg-slate-900/90 border border-slate-700 px-4 py-1.5 rounded-full text-xs font-medium text-slate-300 shadow text-center max-w-[90%] truncate">
+            [찌 던지기]를 눌러 낚시를 시작하세요.
+        </div>
+    </main>
+
+    <!-- 하단 메뉴 네비게이션 -->
+    <footer class="bg-slate-900 border-t border-slate-800 p-3 flex flex-col space-y-2 z-20">
+        <button id="castActionBtn" onclick="handleMainAction()" class="w-full py-3 bg-gradient-to-r from-sky-500 to-blue-600 text-white font-black text-base rounded-xl shadow-lg active:scale-[0.98] transition border-t border-sky-300 flex items-center justify-center space-x-2">
+            <i class="fa-solid fa-water"></i>
+            <span id="actionBtnText">찌 던지기</span>
+        </button>
+
+        <div class="grid grid-cols-2 gap-2">
+            <button onclick="openUpgradeModal()" class="py-2.5 bg-slate-800 border border-slate-700 text-slate-200 text-xs font-bold rounded-lg flex items-center justify-center space-x-1.5 active:scale-95 transition">
+                <span>🔨</span>
+                <span>낚싯대 공방 & 특수대</span>
+            </button>
+            <button onclick="openBookModal()" class="py-2.5 bg-slate-800 border border-slate-700 text-slate-200 text-xs font-bold rounded-lg flex items-center justify-center space-x-1.5 active:scale-95 transition">
+                <span>📖</span>
+                <span>물고기 도감 (100종)</span>
+                <span id="bookNewDot" class="hidden w-2 h-2 rounded-full bg-red-500"></span>
+            </button>
+        </div>
+    </footer>
+
+    <!-- ================= MODALS ================= -->
+
+    <!-- 1. 닉네임 설정 모달 -->
+    <div id="nicknameModal" class="hidden fixed inset-0 z-50 modal-backdrop flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-700 w-full max-w-xs rounded-2xl p-5 shadow-2xl">
+            <h3 class="text-base font-black text-white text-center mb-1">🎣 닉네임 설정</h3>
+            <p class="text-xs text-slate-400 text-center mb-3">개인 저장소에 저장되어 다른 유저와 겹치지 않습니다.</p>
+            <input id="nicknameInput" type="text" maxlength="8" placeholder="최대 8글자" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-sky-500 text-center font-bold mb-4">
+            <button onclick="saveNickname()" class="w-full py-2.5 bg-sky-500 text-white font-bold rounded-xl active:scale-95 transition text-sm">확인</button>
+        </div>
+    </div>
+
+    <!-- 2. 낚싯대 공방 모달 (15강 일반대 + 도감 연동 특수 낚싯대) -->
+    <div id="upgradeModal" class="hidden fixed inset-0 z-50 modal-backdrop flex items-center justify-center p-3">
+        <div class="bg-slate-900 border border-slate-700 w-full max-w-sm h-[82vh] rounded-2xl p-4 shadow-2xl flex flex-col">
+            <div class="flex justify-between items-center pb-2 border-b border-slate-800">
+                <h3 class="text-base font-black text-white">🔨 낚싯대 장비실</h3>
+                <button onclick="closeModal('upgradeModal')" class="text-slate-400 hover:text-white p-1 text-sm"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <!-- 탭 전환 -->
+            <div class="grid grid-cols-2 gap-2 my-2.5">
+                <button id="tabNormalRodBtn" onclick="switchRodTab('normal')" class="py-1.5 rounded-lg text-xs font-bold bg-sky-600 text-white border border-sky-400 transition">
+                    일반 15강화
+                </button>
+                <button id="tabSpecialRodBtn" onclick="switchRodTab('special')" class="py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-300 border border-slate-700 transition">
+                    도감 특수 낚싯대
+                </button>
+            </div>
+
+            <!-- 내용 영역 -->
+            <div class="flex-1 overflow-y-auto space-y-3 pr-1 text-xs">
+                <!-- 일반 15강 탭 -->
+                <div id="normalRodPanel" class="space-y-3">
+                    <div id="rodPreviewCard" class="bg-slate-950 border-2 rounded-xl p-4 text-center transition-all">
+                        <div class="text-3xl mb-1">🎣</div>
+                        <div id="rodPreviewName" class="text-base font-extrabold text-white">기본 낚싯대 (+0)</div>
+                        <div id="rodPreviewStats" class="text-xs text-slate-400 mt-1">스위트스팟: +0% | 희귀 어종 보너스: +0%</div>
+                    </div>
+
+                    <div class="bg-slate-800/60 rounded-xl p-3 text-xs space-y-2 border border-slate-700/60">
+                        <div class="flex justify-between">
+                            <span class="text-slate-400">다음 단계</span>
+                            <span id="nextRodName" class="font-bold text-sky-400">+1 낚싯대</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-slate-400">성공 확률</span>
+                            <span id="upgradeChance" class="font-bold text-amber-400">100%</span>
+                        </div>
+                        <div class="flex justify-between border-t border-slate-700 pt-2">
+                            <span class="text-slate-400">필요 재화</span>
+                            <span class="font-bold text-slate-200">
+                                💰 <span id="reqGold">100</span>G / 💎 <span id="reqStone">1</span>개
+                            </span>
+                        </div>
+                    </div>
+
+                    <button id="upgradeActionBtn" onclick="tryUpgradeRod()" class="w-full py-3 bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 font-black rounded-xl active:scale-95 transition shadow-lg text-sm">
+                        강화 시도
+                    </button>
+                </div>
+
+                <!-- 도감 연동 특수 낚싯대 탭 -->
+                <div id="specialRodPanel" class="hidden space-y-2.5">
+                    <p class="text-[11px] text-slate-400">도감의 특정 어종들을 수집하면 자동으로 해금됩니다.</p>
+                    <div id="specialRodList" class="space-y-2">
+                        <!-- 동적으로 렌더링 -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. 물고기 도감 모달 -->
+    <div id="bookModal" class="hidden fixed inset-0 z-50 modal-backdrop flex items-center justify-center p-3">
+        <div class="bg-slate-900 border border-slate-700 w-full max-w-md h-[85vh] rounded-2xl p-4 shadow-2xl flex flex-col">
+            <div class="flex justify-between items-center pb-2 border-b border-slate-800">
+                <div>
+                    <h3 class="text-base font-black text-white">📖 물고기 생태 도감</h3>
+                    <div class="text-[11px] text-slate-400">발견: <span id="bookCaughtCount" class="text-sky-400 font-bold">0</span> / 100종</div>
+                </div>
+                <button onclick="closeModal('bookModal')" class="text-slate-400 hover:text-white p-1 text-sm"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 my-2.5">
+                <button id="tabDomesticBtn" onclick="switchBookTab('domestic')" class="py-1.5 rounded-lg text-xs font-bold bg-sky-600 text-white border border-sky-400 transition">
+                    🇰🇷 국내 어종 (50)
+                </button>
+                <button id="tabOverseasBtn" onclick="switchBookTab('overseas')" class="py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-300 border border-slate-700 transition">
+                    🌎 해외 어종 (50)
+                </button>
+            </div>
+
+            <div id="bookList" class="flex-1 overflow-y-auto space-y-2 pr-1 text-xs">
+                <!-- 도감 동적 생성 -->
+            </div>
+        </div>
+    </div>
+
+    <!-- 4. 포획 성공 결과 모달 -->
+    <div id="resultModal" class="hidden fixed inset-0 z-50 modal-backdrop flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-700 w-full max-w-xs rounded-2xl p-5 shadow-2xl text-center">
+            <span id="resultGradeBadge" class="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-sky-900 text-sky-300 border border-sky-600">일반</span>
+            <div id="resultFishIcon" class="text-5xl my-2">🐟</div>
+            <h4 id="resultFishName" class="text-base font-black text-white">붕어</h4>
+            <div id="resultFishLength" class="text-xs text-amber-400 font-bold mb-3">18.4cm</div>
+
+            <div class="bg-slate-950 rounded-xl p-3 text-xs space-y-1.5 border border-slate-800 text-left mb-3">
+                <div class="flex justify-between">
+                    <span class="text-slate-400">획득 골드</span>
+                    <span id="resultGainGold" class="font-bold text-amber-300">+25G</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-slate-400">획득 경험치</span>
+                    <span id="resultGainExp" class="font-bold text-sky-300">+10 EXP</span>
+                </div>
+            </div>
+
+            <button onclick="copyKakaoResultText()" class="w-full py-2.5 mb-2 bg-yellow-400 text-slate-950 font-black rounded-xl text-xs flex items-center justify-center space-x-1 active:scale-95 transition">
+                <i class="fa-solid fa-comment"></i>
+                <span>카카오톡 공유 문구 복사</span>
+            </button>
+            <button onclick="closeModal('resultModal')" class="w-full py-2 bg-slate-800 text-slate-300 font-bold rounded-xl text-xs active:scale-95 transition">확인</button>
+        </div>
+    </div>
+
+    <!-- ================= JAVASCRIPT LOGIC ================= -->
+    <script>
+        // 1. 사운드 시스템 (Web Audio API)
+        let audioCtx = null;
+        let isMuted = localStorage.getItem('fishing_muted_v3') === 'true';
+
+        function initAudio() {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+
+        function playTone(freq, type, duration, vol = 0.08) {
+            if (isMuted) return;
+            try {
+                initAudio();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + duration);
+            } catch(e) {}
+        }
+
+        function soundSplash() { playTone(120, 'sine', 0.4, 0.2); }
+        function soundHit() { playTone(880, 'triangle', 0.15, 0.3); setTimeout(() => playTone(1174, 'triangle', 0.2, 0.3), 100); }
+        function soundSuccess() { [523, 659, 783, 1046].forEach((f, i) => setTimeout(() => playTone(f, 'sine', 0.25, 0.15), i * 90)); }
+        function soundFail() { playTone(150, 'sawtooth', 0.3, 0.2); }
+        function soundClick() { playTone(440, 'square', 0.04, 0.05); }
+
+        function toggleMute() {
+            isMuted = !isMuted;
+            localStorage.setItem('fishing_muted_v3', isMuted);
+            updateMuteUI();
+        }
+
+        function updateMuteUI() {
+            const icon = document.getElementById('muteIcon');
+            icon.className = isMuted ? 'fa-solid fa-volume-xmark text-red-400 text-xs' : 'fa-solid fa-volume-high text-slate-300 text-xs';
+        }
+
+        // 2. 15강화 일반 낚싯대 스펙
+        const ROD_TIERS = [
+            { level: 0,  name: '견습 대나무대',  zone: 38, bonus: 0,  costG: 80,    costS: 1,  rate: 100, border: 'border-slate-500 text-slate-400' },
+            { level: 1,  name: '보강 대나무대',  zone: 40, bonus: 2,  costG: 150,   costS: 1,  rate: 95,  border: 'border-slate-400 text-slate-300' },
+            { level: 2,  name: '일반 글라스대',  zone: 42, bonus: 4,  costG: 250,   costS: 1,  rate: 90,  border: 'border-emerald-600 text-emerald-400' },
+            { level: 3,  name: '강화 글라스대',  zone: 44, bonus: 6,  costG: 450,   costS: 2,  rate: 85,  border: 'border-emerald-500 text-emerald-300' },
+            { level: 4,  name: '스탠다드 카본',  zone: 46, bonus: 8,  costG: 750,   costS: 2,  rate: 80,  border: 'border-sky-500 text-sky-400' },
+            { level: 5,  name: '하이 카본 프로', zone: 48, bonus: 10, costG: 1200,  costS: 3,  rate: 75,  border: 'border-sky-400 text-sky-300' },
+            { level: 6,  name: '경량 티타늄대',  zone: 50, bonus: 13, costG: 1800,  costS: 3,  rate: 70,  border: 'border-indigo-500 text-indigo-400' },
+            { level: 7,  name: '초경질 티타늄',  zone: 52, bonus: 16, costG: 2700,  costS: 4,  rate: 65,  border: 'border-purple-500 text-purple-400' },
+            { level: 8,  name: '보론 나노마스터',zone: 54, bonus: 20, costG: 4000,  costS: 5,  rate: 60,  border: 'border-fuchsia-500 text-fuchsia-400' },
+            { level: 9,  name: '청룡의 비늘대',  zone: 56, bonus: 25, costG: 6000,  costS: 6,  rate: 55,  border: 'border-rose-500 text-rose-400' },
+            { level: 10, name: '주작의 화염대',  zone: 58, bonus: 30, costG: 9000,  costS: 7,  rate: 50,  border: 'border-amber-500 text-amber-400' },
+            { level: 11, name: '백호의 섬광대',  zone: 60, bonus: 36, costG: 13500, costS: 8,  rate: 45,  border: 'border-yellow-400 text-yellow-300' },
+            { level: 12, name: '현무의 심해대',  zone: 62, bonus: 42, costG: 20000, costS: 10, rate: 40,  border: 'border-cyan-400 text-cyan-300' },
+            { level: 13, name: '토너먼트 갓로드',zone: 64, bonus: 50, costG: 30000, costS: 12, rate: 35,  border: 'border-orange-500 text-orange-400 animate-pulse' },
+            { level: 14, name: '포세이돈의 삼지창',zone: 66, bonus: 60, costG: 50000, costS: 15, rate: 30,  border: 'border-pink-500 text-pink-300 animate-pulse' },
+            { level: 15, name: '✨초월: 네온 오로라',zone: 70, bonus: 75, costG: 0, costS: 0, rate: 0, border: 'rod-rgb-glow text-white font-black' }
+        ];
+
+        // 3. 도감 연동 특별 낚싯대 4종
+        const SPECIAL_RODS = [
+            {
+                id: 'spec_korean',
+                name: '🌿 토종 명인의 비기',
+                icon: '🥢',
+                desc: '국내 민물 포식자 4종 포획 시 해금. 게이지 유지력 대폭 증가!',
+                targetFishIds: ['dom_13', 'dom_14', 'dom_15', 'dom_16'], // 꺽지, 쏘가리, 가물치, 메기
+                targetDesc: '꺽지, 쏘가리, 가물치, 메기',
+                zoneBonus: 12,
+                drainReduce: 0.3,
+                border: 'border-emerald-400 text-emerald-300 shadow-[0_0_12px_rgba(52,211,153,0.6)]'
+            },
+            {
+                id: 'spec_amazon',
+                name: '🐊 아마존 정복자의 작살',
+                icon: '🔱',
+                desc: '해외 대표 괴어 4종 포획 시 해금. 물고기 이동 속도 둔화!',
+                targetFishIds: ['ovs_1', 'ovs_4', 'ovs_5', 'ovs_14'], // 피라루쿠, 피라냐, 엘리게이터가아, 골리앗타이거
+                targetDesc: '피라루쿠, 피라냐, 엘리게이터 가아, 골리앗 타이거피시',
+                zoneBonus: 10,
+                speedSlow: 0.35,
+                border: 'border-amber-400 text-amber-300 shadow-[0_0_12px_rgba(251,191,36,0.6)]'
+            },
+            {
+                id: 'spec_abyss',
+                name: '🐋 심해의 지배자 로드',
+                icon: '⚓',
+                desc: '바다 최상위 포식자 4종 포획 시 해금. 미스 시 게이지 감소 50% 방어!',
+                targetFishIds: ['dom_50', 'ovs_19', 'ovs_23', 'ovs_49'], // 다금바리, 청새치, 참다랑어, 백상아리
+                targetDesc: '다금바리, 청새치, 참다랑어, 백상아리',
+                zoneBonus: 14,
+                drainReduce: 0.5,
+                border: 'border-cyan-400 text-cyan-300 shadow-[0_0_14px_rgba(34,211,238,0.7)]'
+            },
+            {
+                id: 'spec_golden',
+                name: '👑 황금 용왕의 여의봉',
+                icon: '🌟',
+                desc: '신화/전설급 물고기 5마리 이상 포획 시 해금. 전설 어종 출현율 대폭 증가 & 화려한 오라!',
+                customCheck: (book) => {
+                    const legendIds = FISH_DATABASE.filter(f => f.grade === '전설' || f.grade === '신화').map(f => f.id);
+                    return legendIds.filter(id => book[id] && book[id].caught > 0).length >= 5;
+                },
+                targetDesc: '전설 또는 신화 등급 어종 5종 이상 포획',
+                zoneBonus: 18,
+                rareRateBonus: 25,
+                border: 'rod-rgb-glow text-yellow-300 font-black'
+            }
+        ];
+
+        // 4. 총 100종 물고기 데이터베이스 (국내 50 + 해외 50)
+        const DOMESTIC_FISH_NAMES = [
+            "피라미","붕어","참붕어","떡붕어","돌고기","모래무지","버들치","갈겨니","쉬리","배가사리",
+            "동사리","얼룩동사리","꺽지","쏘가리","가물치","메기","동자개(빠가사리)","자가사리","산천어","열목어",
+            "은어","빙어","무지개송어","배스","블루길","전갱이","고등어","정어리","학꽁치","멸치",
+            "볼락","우럭(조피볼락)","개볼락","열기(불볼락)","광어(넙치)","도다리(문치가자미)","참가자미","돌가자미","감성돔","참돔",
+            "돌돔","벵에돔","긴꼬리벵에돔","농어","점농어","넙치농어","삼치","방어","부시리","다금바리(자바리)"
+        ];
+
+        const OVERSEAS_FISH_NAMES = [
+            "피라루쿠","실버 아로와나","블랙 아로와나","피라냐 나테리","엘리게이터 가아","롱노즈 가아","타이거 쇼벨노즈","레드테일 캣피시","피콕배스","나일퍼치",
+            "바라문디","골든 도라도","바가리우스 야렐리","골리앗 타이거피시","메콩 대형메기","철갑상어","산갈치","실러캔스","청새치(블루마린)","흑새치(블랙마린)",
+            "돛새치(세일피시)","황새치(스워드피시)","참다랑어(블루핀)","눈다랑어(빅아이)","황다랑어(옐로핀)","날개다랑어(알바코어)","가다랑어(스킵잭)","자이언트 트레발리(GT)","바라쿠다","만새기(마히마히)",
+            "타폰(타폰 메갈롭스)","본피시","퍼밋","골리앗 그루퍼","레드 스내퍼","나폴레옹 피시","바롯(앵무고기)","씬벵이(프로그피시)","크라운피시(니모)","블루탱(도리)",
+            "옐로탱","쏠배감펭(라이온피시)","곰치(그린모레이)","킹연어(치눅)","은연어(코호)","북극 곤들매기","타이멘(몽골연어)","개복치","백상아리","귀상어(해머헤드)"
+        ];
+
+        const FISH_DATABASE = [];
+
+        function buildFishDb() {
+            const grades = ['일반', '고급', '희귀', '영웅', '전설', '신화'];
+            const icons = ['🐟', '🐠', '🐡', '🦈', '🐊', '✨'];
+
+            DOMESTIC_FISH_NAMES.forEach((name, i) => {
+                let g = 0;
+                if (i >= 48) g = 5;
+                else if (i >= 44) g = 4;
+                else if (i >= 38) g = 3;
+                else if (i >= 25) g = 2;
+                else if (i >= 12) g = 1;
+
+                FISH_DATABASE.push({
+                    id: `dom_${i+1}`,
+                    category: 'domestic',
+                    name: name,
+                    grade: grades[g],
+                    icon: icons[g % icons.length],
+                    isHard: g >= 2, // 희귀 이상부터 3성 난이도
+                    minLen: 10 + i * 2,
+                    maxLen: 20 + i * 3,
+                    baseGold: (g + 1) * 35,
+                    exp: (g + 1) * 12,
+                    rewardGold: (g + 1) * 200,
+                    rewardStone: Math.max(1, g * 2)
+                });
+            });
+
+            OVERSEAS_FISH_NAMES.forEach((name, i) => {
+                let g = 1;
+                if (i >= 46) g = 5;
+                else if (i >= 38) g = 4;
+                else if (i >= 25) g = 3;
+                else if (i >= 15) g = 2;
+
+                FISH_DATABASE.push({
+                    id: `ovs_${i+1}`,
+                    category: 'overseas',
+                    name: name,
+                    grade: grades[g],
+                    icon: icons[g % icons.length],
+                    isHard: g >= 2,
+                    minLen: 30 + i * 4,
+                    maxLen: 60 + i * 6,
+                    baseGold: (g + 1) * 50,
+                    exp: (g + 1) * 20,
+                    rewardGold: (g + 1) * 350,
+                    rewardStone: Math.max(1, g * 3)
+                });
+            });
+        }
+        buildFishDb();
+
+        // 5. 유저 저장소 관리
+        let player = {
+            nickname: '강태공',
+            gold: 300,
+            stones: 3,
+            rodLevel: 0,
+            equippedSpecialRod: null, // null 이면 일반 15강대 착용
+            todayCount: 0,
+            book: {}
+        };
+
+        function loadPlayerData() {
+            const saved = localStorage.getItem('fishing_player_save_v3');
+            if (saved) {
+                try { player = Object.assign(player, JSON.parse(saved)); } catch(e) {}
+            }
+            FISH_DATABASE.forEach(f => {
+                if (!player.book[f.id]) {
+                    player.book[f.id] = { caught: 0, rewardClaimed: false };
+                }
+            });
+            updateTopDashboard();
+        }
+
+        function savePlayerData() {
+            localStorage.setItem('fishing_player_save_v3', JSON.stringify(player));
+            updateTopDashboard();
+        }
+
+        function updateTopDashboard() {
+            document.getElementById('displayNickname').innerText = player.nickname;
+            document.getElementById('goldText').innerText = player.gold.toLocaleString();
+            document.getElementById('stoneText').innerText = player.stones.toLocaleString();
+
+            const badge = document.getElementById('rodBadgeContainer');
+            if (player.equippedSpecialRod) {
+                const spec = SPECIAL_RODS.find(s => s.id === player.equippedSpecialRod);
+                badge.className = `px-2 py-0.5 rounded-lg border-2 text-[10px] font-black ${spec.border}`;
+                document.getElementById('rodBadgeName').innerText = `${spec.icon} ${spec.name.slice(0, 5)}`;
+            } else {
+                const rod = ROD_TIERS[player.rodLevel];
+                badge.className = `px-2 py-0.5 rounded-lg border-2 text-[10px] font-black ${rod.border}`;
+                document.getElementById('rodBadgeName').innerText = `+${player.rodLevel} ${rod.name.slice(0, 5)}`;
+            }
+
+            const hasUnclaimed = Object.keys(player.book).some(id => player.book[id].caught > 0 && !player.book[id].rewardClaimed);
+            document.getElementById('bookNewDot').classList.toggle('hidden', !hasUnclaimed);
+        }
+
+        // 6. 모바일 최적화 릴링 시스템 (난이도 1.5 vs 3 분기)
+        let gameState = 'IDLE';
+        let biteTimeout = null;
+        let biteWindowTimeout = null;
+        let currentHookedFish = null;
+
+        let reelingLoop = null;
+        let fishZonePos = 40;
+        let fishZoneTarget = 40;
+        let userTensionPos = 20;
+        let isReeling = false;
+        let captureScore = 45;
+
+        function handleMainAction() {
+            soundClick();
+            if (gameState === 'IDLE') {
+                startCasting();
+            } else if (gameState === 'BITE') {
+                startReelingGame();
+            } else if (gameState === 'CASTED') {
+                cancelFishing("너무 일찍 당겨 물고기가 도망쳤습니다!");
+            }
+        }
+
+        function startCasting() {
+            gameState = 'CASTED';
+            document.getElementById('actionBtnText').innerText = '기다리는 중...';
+            document.getElementById('castActionBtn').className = 'w-full py-3 bg-slate-800 text-slate-400 font-bold text-base rounded-xl border border-slate-700';
+            document.getElementById('statusToast').innerText = '잔잔한 물결 속에서 입질을 기다리는 중...';
+
+            soundSplash();
+            const bobber = document.getElementById('bobber');
+            bobber.className = 'w-7 h-14 relative bobber-float';
+
+            // 낚일 물고기 사전 결정
+            currentHookedFish = pickRandomFish();
+
+            const waitTime = 2200 + Math.random() * 2500;
+            biteTimeout = setTimeout(() => {
+                triggerBite();
+            }, waitTime);
+        }
+
+        function pickRandomFish() {
+            const rod = ROD_TIERS[player.rodLevel];
+            let rareRateBonus = rod.bonus;
+
+            // 특수 낚싯대 보너스 반영
+            if (player.equippedSpecialRod === 'spec_golden') rareRateBonus += 25;
+
+            const isOverseas = Math.random() < 0.45;
+            const pool = FISH_DATABASE.filter(f => isOverseas ? f.category === 'overseas' : f.category === 'domestic');
+            const rand = Math.random() * 100;
+
+            if (rand < 3 + rareRateBonus * 0.15) {
+                return pool.filter(f => f.grade === '신화')[0] || pool[pool.length - 1];
+            } else if (rand < 9 + rareRateBonus * 0.25) {
+                const epics = pool.filter(f => f.grade === '전설');
+                return epics[Math.floor(Math.random() * epics.length)] || pool[0];
+            } else if (rand < 25 + rareRateBonus * 0.35) {
+                const heroes = pool.filter(f => f.grade === '영웅');
+                return heroes[Math.floor(Math.random() * heroes.length)] || pool[0];
+            } else if (rand < 55) {
+                const uncommons = pool.filter(f => f.grade === '희귀' || f.grade === '고급');
+                return uncommons[Math.floor(Math.random() * uncommons.length)] || pool[0];
+            } else {
+                const commons = pool.filter(f => f.grade === '일반');
+                return commons[Math.floor(Math.random() * commons.length)] || pool[0];
+            }
+        }
+
+        function triggerBite() {
+            gameState = 'BITE';
+            soundHit();
+            if (navigator.vibrate) navigator.vibrate([100, 50, 150]);
+
+            const bobber = document.getElementById('bobber');
+            bobber.className = 'w-7 h-14 relative bobber-bite';
+            document.getElementById('hitBubble').classList.remove('hidden');
+
+            document.getElementById('actionBtnText').innerText = '💥 지금 챔질하기!';
+            document.getElementById('castActionBtn').className = 'w-full py-3 bg-red-600 text-white font-black text-base rounded-xl border-t border-red-300 animate-pulse';
+            document.getElementById('statusToast').innerText = '강한 입질! 어서 챔질 버튼을 누르세요!';
+
+            // 1.5초 이내에 챔질
+            biteWindowTimeout = setTimeout(() => {
+                if (gameState === 'BITE') {
+                    cancelFishing("물고기가 미끼만 채가고 도망쳤습니다!");
+                }
+            }, 1500);
+        }
+
+        function cancelFishing(reason) {
+            clearTimeout(biteTimeout);
+            clearTimeout(biteWindowTimeout);
+            soundFail();
+            gameState = 'IDLE';
+            document.getElementById('hitBubble').classList.add('hidden');
+            const bobber = document.getElementById('bobber');
+            bobber.className = 'w-7 h-14 relative bobber-float';
+            
+            document.getElementById('statusToast').innerText = reason;
+            document.getElementById('actionBtnText').innerText = '찌 던지기';
+            document.getElementById('castActionBtn').className = 'w-full py-3 bg-gradient-to-r from-sky-500 to-blue-600 text-white font-black text-base rounded-xl shadow-lg';
+        }
+
+        function startReelingGame() {
+            clearTimeout(biteWindowTimeout);
+            gameState = 'REELING';
+            document.getElementById('hitBubble').classList.add('hidden');
+            document.getElementById('reelingUI').classList.remove('hidden');
+
+            const isHard = currentHookedFish.isHard;
+            
+            // 난이도 표시
+            document.getElementById('fightFishTierBadge').innerText = `${currentHookedFish.grade} 어종`;
+            document.getElementById('fightFishDifficulty').innerText = isHard ? '⭐ 난이도: 3.0 (긴장!)' : '⭐ 난이도: 1.5 (쉬움)';
+            document.getElementById('fightFishDifficulty').className = isHard ? 'text-xs text-rose-400 font-bold ml-1.5' : 'text-xs text-emerald-400 font-bold ml-1.5';
+
+            // 낚싯대 스펙 계산
+            let baseZone = ROD_TIERS[player.rodLevel].zone;
+            if (player.equippedSpecialRod) {
+                const spec = SPECIAL_RODS.find(s => s.id === player.equippedSpecialRod);
+                if (spec && spec.zoneBonus) baseZone += spec.zoneBonus;
+            }
+
+            // 난이도별 초록색 스위트스팟 존 크기
+            const finalZone = isHard ? Math.max(34, baseZone - 6) : Math.max(48, baseZone);
+            document.getElementById('fishSweetZone').style.height = `${finalZone}%`;
+
+            fishZonePos = 35;
+            userTensionPos = 20;
+            captureScore = isHard ? 40 : 55; // 기본 물고기는 시작 점수도 넉넉하게
+
+            const reelBtn = document.getElementById('reelBtn');
+            reelBtn.onpointerdown = (e) => { e.preventDefault(); isReeling = true; };
+            reelBtn.onpointerup = reelBtn.onpointercancel = (e) => { e.preventDefault(); isReeling = false; };
+
+            reelingLoop = setInterval(updateReelingPhysics, 40);
+        }
+
+        function updateReelingPhysics() {
+            const isHard = currentHookedFish.isHard;
+            let baseZone = ROD_TIERS[player.rodLevel].zone;
+            
+            let drainReduction = 1.0;
+            let speedDamp = 1.0;
+
+            if (player.equippedSpecialRod) {
+                const spec = SPECIAL_RODS.find(s => s.id === player.equippedSpecialRod);
+                if (spec.zoneBonus) baseZone += spec.zoneBonus;
+                if (spec.drainReduce) drainReduction = (1 - spec.drainReduce);
+                if (spec.speedSlow) speedDamp = (1 - spec.speedSlow);
+            }
+
+            const zoneHeight = isHard ? Math.max(34, baseZone - 6) : Math.max(48, baseZone);
+
+            // 물고기 움직임 (1.5성은 천천히, 3성은 약간 활발)
+            const moveChance = (isHard ? 0.09 : 0.04) * speedDamp;
+            if (Math.random() < moveChance) {
+                fishZoneTarget = Math.max(5, Math.min(95 - zoneHeight, Math.random() * 85));
+            }
+            const lerpFactor = (isHard ? 0.10 : 0.05) * speedDamp;
+            fishZonePos += (fishZoneTarget - fishZonePos) * lerpFactor;
+            document.getElementById('fishSweetZone').style.bottom = `${fishZonePos}%`;
+
+            // 유저 찌 인디케이터 반응 (누르고 있을 때/뗐을 때)
+            if (isReeling) {
+                userTensionPos = Math.min(92, userTensionPos + 3.8);
+                if (Math.random() < 0.2) playTone(280, 'sine', 0.03, 0.04);
+            } else {
+                userTensionPos = Math.max(0, userTensionPos - 2.5);
+            }
+            document.getElementById('tensionIndicator').style.bottom = `${userTensionPos}%`;
+
+            // 초록 영역 안 판정 (오차 범위 넉넉하게 부여)
+            const inZone = (userTensionPos >= fishZonePos - 4) && (userTensionPos <= fishZonePos + zoneHeight + 2);
+
+            if (inZone) {
+                // 초록 영역 안: 게이지 상승 속도 증가
+                captureScore += isHard ? 1.2 : 1.7;
+                document.getElementById('fishSweetZone').classList.add('bg-emerald-400/80');
+            } else {
+                // 초록 영역 밖: 게이지 감소 대폭 완화
+                const drainSpeed = (isHard ? 0.55 : 0.28) * drainReduction;
+                captureScore -= drainSpeed;
+                document.getElementById('fishSweetZone').classList.remove('bg-emerald-400/80');
+            }
+
+            captureScore = Math.max(0, Math.min(100, captureScore));
+            document.getElementById('captureProgress').style.height = `${captureScore}%`;
+            document.getElementById('capturePercentText').innerText = `${Math.floor(captureScore)}%`;
+
+            if (captureScore >= 100) {
+                finishFishing(true);
+            } else if (captureScore <= 0) {
+                finishFishing(false);
+            }
+        }
+
+        function finishFishing(success) {
+            clearInterval(reelingLoop);
+            document.getElementById('reelingUI').classList.add('hidden');
+            gameState = 'IDLE';
+
+            document.getElementById('actionBtnText').innerText = '찌 던지기';
+            document.getElementById('castActionBtn').className = 'w-full py-3 bg-gradient-to-r from-sky-500 to-blue-600 text-white font-black text-base rounded-xl shadow-lg';
+
+            if (success) {
+                soundSuccess();
+                processFishCatch(currentHookedFish);
+            } else {
+                cancelFishing("물고기의 저항으로 줄이 끊어졌습니다!");
+            }
+        }
+
+        // 7. 물고기 획득 처리 및 특수 낚싯대 해금 확인
+        function processFishCatch(fish) {
+            player.todayCount++;
+
+            const length = (fish.minLen + Math.random() * (fish.maxLen - fish.minLen)).toFixed(1);
+            const gainedGold = Math.floor(fish.baseGold * (1 + (length / fish.maxLen) * 0.6));
+            const gainedExp = fish.exp;
+
+            player.gold += gainedGold;
+            player.book[fish.id].caught += 1;
+
+            savePlayerData();
+            checkSpecialRodsUnlock(); // 낚은 후 특수 낚싯대 달성 여부 실시간 확인
+
+            document.getElementById('resultGradeBadge').innerText = fish.grade;
+            document.getElementById('resultFishIcon').innerText = fish.icon;
+            document.getElementById('resultFishName').innerText = fish.name;
+            document.getElementById('resultFishLength').innerText = `${length} cm`;
+            document.getElementById('resultGainGold').innerText = `+${gainedGold.toLocaleString()} G`;
+            document.getElementById('resultGainExp').innerText = `+${gainedExp} EXP`;
+            document.getElementById('resultModal').classList.remove('hidden');
+
+            window.lastCatchData = { fish, length, gold: gainedGold, exp: gainedExp };
+        }
+
+        function copyKakaoResultText() {
+            if (!window.lastCatchData) return;
+            const d = window.lastCatchData;
+            const rodName = player.equippedSpecialRod 
+                ? SPECIAL_RODS.find(s => s.id === player.equippedSpecialRod).name 
+                : `+${player.rodLevel} ${ROD_TIERS[player.rodLevel].name}`;
+
+            const text = 
+`@${player.nickname} 낚시 성공!
+
+[${d.fish.name}] ${d.length}cm
+등급: ${d.fish.grade} (${d.fish.category === 'domestic' ? '국내' : '해외'})
+💰 획득 골드: ${d.gold}G
+💰 보유 골드: ${player.gold.toLocaleString()}G
+✨ 경험치: ${d.exp}EXP
+🎣 사용 장비: ${rodName}`;
+
+            navigator.clipboard.writeText(text).then(() => {
+                alert("카카오톡 단톡방 공유 텍스트가 복사되었습니다!");
+            });
+        }
+
+        // 8. 낚싯대 공방 & 특수 낚싯대 해금/장착
+        let currentRodTab = 'normal';
+
+        function switchRodTab(tab) {
+            soundClick();
+            currentRodTab = tab;
+            document.getElementById('tabNormalRodBtn').className = tab === 'normal'
+                ? 'py-1.5 rounded-lg text-xs font-bold bg-sky-600 text-white border border-sky-400 transition'
+                : 'py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-300 border border-slate-700 transition';
+            document.getElementById('tabSpecialRodBtn').className = tab === 'special'
+                ? 'py-1.5 rounded-lg text-xs font-bold bg-sky-600 text-white border border-sky-400 transition'
+                : 'py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-300 border border-slate-700 transition';
+
+            document.getElementById('normalRodPanel').classList.toggle('hidden', tab !== 'normal');
+            document.getElementById('specialRodPanel').classList.toggle('hidden', tab !== 'special');
+
+            if (tab === 'special') renderSpecialRodList();
+            else updateNormalRodUI();
+        }
+
+        function openUpgradeModal() {
+            soundClick();
+            switchRodTab('normal');
+            document.getElementById('upgradeModal').classList.remove('hidden');
+        }
+
+        function updateNormalRodUI() {
+            const curr = ROD_TIERS[player.rodLevel];
+            const next = ROD_TIERS[player.rodLevel + 1];
+
+            const preview = document.getElementById('rodPreviewCard');
+            preview.className = `bg-slate-950 border-2 rounded-xl p-4 text-center transition-all ${curr.border}`;
+            document.getElementById('rodPreviewName').innerText = `${curr.name} (+${curr.level})`;
+            document.getElementById('rodPreviewStats').innerText = `스위트스팟: ${curr.zone}% | 희귀 어종 보너스: +${curr.bonus}%`;
+
+            const btn = document.getElementById('upgradeActionBtn');
+            if (next) {
+                document.getElementById('nextRodName').innerText = `+${next.level} ${next.name}`;
+                document.getElementById('upgradeChance').innerText = `${curr.rate}%`;
+                document.getElementById('reqGold').innerText = curr.costG.toLocaleString();
+                document.getElementById('reqStone').innerText = curr.costS;
+                btn.disabled = false;
+                btn.className = 'w-full py-3 bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 font-black rounded-xl active:scale-95 transition shadow-lg text-sm';
+                btn.innerText = '강화 시도하기';
+            } else {
+                document.getElementById('nextRodName').innerText = '최대 15강 달성 (MAX)';
+                document.getElementById('upgradeChance').innerText = '-';
+                document.getElementById('reqGold').innerText = '-';
+                document.getElementById('reqStone').innerText = '-';
+                btn.disabled = true;
+                btn.className = 'w-full py-3 bg-slate-800 text-slate-500 font-bold rounded-xl text-sm';
+                btn.innerText = '최고 강화 등급입니다';
+            }
+        }
+
+        function tryUpgradeRod() {
+            const curr = ROD_TIERS[player.rodLevel];
+            if (player.gold < curr.costG || player.stones < curr.costS) {
+                alert("골드 또는 강화석이 부족합니다!\n도감 보상을 수령해보세요.");
+                return;
+            }
+
+            player.gold -= curr.costG;
+            player.stones -= curr.costS;
+
+            if ((Math.random() * 100) <= curr.rate) {
+                soundSuccess();
+                player.rodLevel += 1;
+                alert(`🎉 [강화 성공] +${player.rodLevel} [${ROD_TIERS[player.rodLevel].name}] 완성!`);
+            } else {
+                soundFail();
+                alert("💥 [강화 실패] 등급은 유지되며 재료만 소모되었습니다.");
+            }
+
+            savePlayerData();
+            updateNormalRodUI();
+        }
+
+        // 특수 낚싯대 해금 여부 판별 로직
+        function isSpecialRodUnlocked(rod) {
+            if (rod.customCheck) return rod.customCheck(player.book);
+            return rod.targetFishIds.every(id => player.book[id] && player.book[id].caught > 0);
+        }
+
+        function checkSpecialRodsUnlock() {
+            SPECIAL_RODS.forEach(rod => {
+                if (isSpecialRodUnlocked(rod) && !localStorage.getItem(`unlocked_${rod.id}`)) {
+                    localStorage.setItem(`unlocked_${rod.id}`, 'true');
+                    alert(`🎊 [특수 낚싯대 해금!] 도감 조건을 만족하여 [${rod.name}]을(를) 획득했습니다! 공방에서 장착하세요.`);
+                }
+            });
+        }
+
+        function renderSpecialRodList() {
+            const container = document.getElementById('specialRodList');
+            container.innerHTML = '';
+
+            // 기본 15강 낚싯대로 되돌리는 옵션
+            const isDefaultEquipped = player.equippedSpecialRod === null;
+            const defItem = document.createElement('div');
+            defItem.className = `p-3 rounded-xl border flex items-center justify-between ${isDefaultEquipped ? 'border-sky-500 bg-sky-950/30' : 'border-slate-800 bg-slate-950/60'}`;
+            defItem.innerHTML = `
+                <div>
+                    <div class="font-bold text-slate-200">일반 강화 낚싯대 (+${player.rodLevel})</div>
+                    <div class="text-[10px] text-slate-400">내가 강화한 15단계 일반 로드를 장착합니다.</div>
+                </div>
+                <button onclick="equipSpecialRod(null)" class="px-2.5 py-1 rounded text-xs font-bold ${isDefaultEquipped ? 'bg-sky-500 text-white' : 'bg-slate-800 text-slate-300'}">
+                    ${isDefaultEquipped ? '장착 중' : '장착하기'}
+                </button>
+            `;
+            container.appendChild(defItem);
+
+            // 특수 낚싯대 4종 렌더링
+            SPECIAL_RODS.forEach(rod => {
+                const unlocked = isSpecialRodUnlocked(rod);
+                const isEquipped = player.equippedSpecialRod === rod.id;
+
+                const card = document.createElement('div');
+                card.className = `p-3 rounded-xl border flex flex-col space-y-2 ${unlocked ? (isEquipped ? 'border-amber-400 bg-amber-950/20' : 'border-slate-700 bg-slate-950/80') : 'border-slate-900 bg-slate-950/30 opacity-60'}`;
+
+                card.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-2">
+                            <span class="text-2xl">${rod.icon}</span>
+                            <div>
+                                <h4 class="font-bold text-xs text-white">${rod.name}</h4>
+                                <span class="text-[9px] px-1.5 py-0.5 rounded bg-slate-800 text-amber-300 font-semibold">${rod.targetDesc}</span>
+                            </div>
+                        </div>
+                        <div>
+                            ${
+                                !unlocked 
+                                ? `<span class="text-[10px] text-slate-500 font-bold bg-slate-900 px-2 py-1 rounded">🔒 미해금</span>`
+                                : isEquipped
+                                ? `<span class="text-[10px] text-emerald-400 font-black px-2 py-1 bg-emerald-950/50 rounded border border-emerald-500/40">장착 중</span>`
+                                : `<button onclick="equipSpecialRod('${rod.id}')" class="px-2.5 py-1 bg-sky-500 text-white text-xs font-bold rounded shadow active:scale-95 transition">장착</button>`
+                            }
+                        </div>
+                    </div>
+                    <p class="text-[10px] text-slate-300">${rod.desc}</p>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function equipSpecialRod(rodId) {
+            soundClick();
+            player.equippedSpecialRod = rodId;
+            savePlayerData();
+            renderSpecialRodList();
+        }
+
+        // 9. 도감 렌더링
+        let currentBookTab = 'domestic';
+
+        function switchBookTab(tab) {
+            soundClick();
+            currentBookTab = tab;
+            document.getElementById('tabDomesticBtn').className = tab === 'domestic' 
+                ? 'py-1.5 rounded-lg text-xs font-bold bg-sky-600 text-white border border-sky-400' 
+                : 'py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-300 border border-slate-700';
+            document.getElementById('tabOverseasBtn').className = tab === 'overseas' 
+                ? 'py-1.5 rounded-lg text-xs font-bold bg-sky-600 text-white border border-sky-400' 
+                : 'py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-300 border border-slate-700';
+            renderBookList();
+        }
+
+        function openBookModal() {
+            soundClick();
+            renderBookList();
+            document.getElementById('bookModal').classList.remove('hidden');
+        }
+
+        function renderBookList() {
+            const listEl = document.getElementById('bookList');
+            listEl.innerHTML = '';
+
+            const list = FISH_DATABASE.filter(f => f.category === currentBookTab);
+            const caughtTotal = Object.values(player.book).filter(v => v.caught > 0).length;
+            document.getElementById('bookCaughtCount').innerText = caughtTotal;
+
+            list.forEach(fish => {
+                const bookData = player.book[fish.id] || { caught: 0, rewardClaimed: false };
+                const isCaught = bookData.caught > 0;
+
+                const item = document.createElement('div');
+                item.className = `p-2.5 rounded-xl border flex items-center justify-between transition ${
+                    isCaught ? 'bg-slate-950/75 border-slate-800' : 'bg-slate-950/30 border-slate-900/60'
+                }`;
+
+                item.innerHTML = `
+                    <div class="flex items-center space-x-3">
+                        <div class="text-2xl w-8 text-center ${isCaught ? '' : 'fish-silhouette'}">
+                            ${fish.icon}
+                        </div>
+                        <div>
+                            <div class="flex items-center space-x-1.5">
+                                <span class="font-bold text-xs ${isCaught ? 'text-white' : 'text-slate-500'}">
+                                    ${isCaught ? fish.name : '??? (미지의 물고기)'}
+                                </span>
+                                <span class="text-[9px] px-1.5 py-0.5 rounded ${isCaught ? 'bg-slate-800 text-sky-400' : 'bg-slate-900 text-slate-600'} font-semibold">
+                                    ${fish.grade}
+                                </span>
+                            </div>
+                            <div class="text-[10px] text-slate-400 mt-0.5">
+                                ${isCaught ? `포획 횟수: <span class="text-slate-200 font-bold">${bookData.caught}마리</span>` : '아직 발견하지 못함 (실루엣)'}
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        ${
+                            !isCaught
+                            ? `<span class="text-[10px] text-slate-600 font-bold px-2 py-1 bg-slate-900 rounded">미발견</span>`
+                            : bookData.rewardClaimed
+                            ? `<span class="text-[10px] text-emerald-400 font-bold px-2 py-1 bg-emerald-950/40 rounded border border-emerald-500/30">수령 완료</span>`
+                            : `<button onclick="claimBookReward('${fish.id}')" class="px-2.5 py-1 bg-gradient-to-r from-amber-400 to-yellow-500 text-slate-950 text-[11px] font-black rounded-lg shadow active:scale-95 transition">
+                                🎁 보상 수령
+                               </button>`
+                        }
+                    </div>
+                `;
+                listEl.appendChild(item);
+            });
+        }
+
+        function claimBookReward(fishId) {
+            const fish = FISH_DATABASE.find(f => f.id === fishId);
+            if (!fish || player.book[fishId].rewardClaimed) return;
+
+            soundSuccess();
+            player.book[fishId].rewardClaimed = true;
+            player.gold += fish.rewardGold;
+            player.stones += fish.rewardStone;
+
+            savePlayerData();
+            alert(`🎁 [${fish.name}] 도감 보상 완료!\n💰 +${fish.rewardGold}G / 💎 강화석 +${fish.rewardStone}개`);
+            renderBookList();
+        }
+
+        // 10. 닉네임 설정
+        function openNicknameModal() {
+            document.getElementById('nicknameInput').value = player.nickname;
+            document.getElementById('nicknameModal').classList.remove('hidden');
+        }
+
+        function saveNickname() {
+            soundClick();
+            const val = document.getElementById('nicknameInput').value.trim();
+            if (val) {
+                player.nickname = val;
+                savePlayerData();
+            }
+            closeModal('nicknameModal');
+        }
+
+        function closeModal(id) {
+            soundClick();
+            document.getElementById(id).classList.add('hidden');
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            loadPlayerData();
+            updateMuteUI();
+            if (!localStorage.getItem('fishing_player_save_v3')) {
+                openNicknameModal();
+            }
+        });
+    </script>
+</body>
+</html>
